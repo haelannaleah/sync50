@@ -10,10 +10,10 @@ INSTALLDONE="$COPYLOC"
 CS50="CS50 IDE"
 WORKSPACE="$CS50"/"$WKSPC"
 
-WORKDIR=${HOME}/"$WORKSPACE"
-#WORKDIR=${HOME}/workspace/bash_prac
+#WORKDIR=${HOME}/"$WORKSPACE"
+WORKDIR=${HOME}/workspace/bash_prac
 
-COPYCMND=${HOME}/copy/x86_64/CopyCmd
+COPYCMD=${HOME}/copy/x86_64/CopyCmd
 COPYCONSOLE=${HOME}/copy/x86_64/CopyConsole
 
 MISSLOGIN="Missing Login Information"
@@ -42,7 +42,7 @@ help(){
 install(){
     if [ ! -e "$INSTALLDONE" ]; then
         echo "Downloading Copy...."
-        wget -O - "https://copy.com/install/linux/Copy.tgz" |  tar xzf -
+        wget -O - "https://copy.com/install/linux/Copy.tgz" |  tar xzf - > /dev/null
         if [ ! -e "$SETUPDONE" ]; then
             mkdir -p "$DOTCOPY"
             echo "$MISSLOGIN" > "$SETUPDONE"
@@ -64,11 +64,20 @@ process(){
         CURRENTPID=`ps -ef | grep "$PROCESSNAME" | grep -v grep | awk '{print $2}'`
         let COUNTER+=1
     done; echo
-    if [ -n "$CURRENTPID" ]; then
-        [[ $1 = "start" ]] && echo "$STARTSUCCESS" || echo "$STOPFAILURE" 
-    else
-        [[ $1 = "stop" ]] && echo "$STOPSUCCESS" || echo "$STARTFAILURE"
-    fi
+    PID="$CURRENTPID"
+    case "$1" in
+        "start")
+            [[ -n "$CURRENTPID" ]] && echo "$STARTSUCCESS" || echo "$STARTFAILURE"
+            ;;
+        "stop")
+            [[ -z "$CURRENTPID" ]] && echo "$STOPSUCCESS" || echo "$STOPFAILURE"
+            ;;
+        "init")
+            [[ -n "$CURRENTPID" ]] && status; echo "$STATUS. Exiting..."; exit || stop
+            ;;
+        *)
+            ;;
+    esac
 }
 
 # set current status
@@ -85,13 +94,10 @@ login(){
         echo -n "password: "; read -s pswrd; echo
         $COPYCONSOLE -daemon -u="$email" -p="$pswrd" -r="$WORKDIR" > /dev/null
         echo "Checking..."
-        sleep 2
-        status
-        echo $STATUS
-        if [ "$STATUS"  = "$INVALIDLOGN" ]; then
-            exit
-        fi
-        process "start"
+        process "init"
+
+        #cloudFiles=`$COPYCMD Cloud ls | sed -r 's/^L.*|^d.[ \t\f\v]*|^-.[ \t\f\v]*(\S* )//gm'`
+        #process "start"
     else
         echo "Before proceeding with setup, you need a copy.com account."
         echo "Please proceed to https://www.copy.com and create an account. Exiting..."
@@ -135,6 +141,7 @@ uninstall(){
     
 pushd ${HOME} >/dev/null
 
+
 if [ $# != 1 ]; then
     help
     exit
@@ -159,8 +166,15 @@ case "$1" in
         ;;
     *)
         echo "sync50: unrecognized option '$1'"
-        echo "Usage: sync50 [start|stop|uninstall]"
+        echo "Usage: sync50 [start|stop|status|uninstall]"
         echo "Try 'sync50 --help' for more information."
         ;;
 esac
 exit
+
+# directory regex: ^L.*|^d.[ \t\f\v]*|^-.[ \t\f\v]*(\S* ), MULTILINE
+
+# remove the login line, and all non file name lines
+
+# cloudFiles=`$COPYCMD Cloud ls | sed -r 's/^L.*|^d.[ \t\f\v]*|^-.[ \t\f\v]*(\S* )//gm'`
+# excludeFiles=`$COPYCMD Cloud exclude -list | sed -r 's/^(E|L).*$|^\///gm'`
