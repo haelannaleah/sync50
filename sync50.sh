@@ -3,6 +3,7 @@
 COPYBIN=${HOME}/bin/copy
 COPYLOC=${HOME}/copy
 DOTCOPY=${HOME}/.copy
+#CLDWKSPC="$COPYLOC/workspaces/${C9_USER}/${C9_PROJECT}"
 
 SETUPDONE="$DOTCOPY"/status.txt
 INSTALLDONE="$COPYLOC"
@@ -18,12 +19,13 @@ COPYCONSOLE=${HOME}/copy/x86_64/CopyConsole
 
 MISSLOGIN="Missing Login Information"
 INVALIDLOGN="Incorrect username or password"
+NOTINSTALLED="Sync50 has not been installed. Type 'sync50 start' to begin setup."
 STATUS=""
 
 PROCESSNAME="CopyConsole"
 PID=`ps -ef | grep "$PROCESSNAME" | grep -v grep | awk '{print $2}'`
 
-SLEEPTIME=10
+SLEEPTIME=5
 
 STARTSUCCESS="Syncing started successfully!"
 STARTFAILURE="Unable to start sync50 at this time."
@@ -42,16 +44,33 @@ help(){
 install(){
     if [ ! -e "$INSTALLDONE" ]; then
         echo "Downloading Copy...."
-        wget -O - "https://copy.com/install/linux/Copy.tgz" |  tar xzf - > /dev/null
+        wget -q -O - "https://copy.com/install/linux/Copy.tgz" |  tar xzf -
         if [ ! -e "$SETUPDONE" ]; then
             mkdir -p "$DOTCOPY"
             echo "$MISSLOGIN" > "$SETUPDONE"
         fi
+        mkdir -p "$COPYLOC/${C9_USER}/"
         echo "Download complete."
     else 
         echo "Already installed."
     fi
     start
+}
+
+# log in to copy.com
+login(){
+    echo -n "Do you already have a Copy.com account? [y/N]: "; read prompt
+    if [[ "$prompt" =~ [yY](es)* ]]; then
+        echo "To setup copy.com and backup your workspace, please enter your account information."
+        echo -n "email address: "; read email
+        echo -n "password: "; read -s pswrd; echo
+        echo "Checking..."
+        $COPYCONSOLE -daemon -u="$email" -p="$pswrd" -r="$WORKDIR" > /dev/null
+        process "init"
+    else
+        echo "Before proceeding with setup, you need a copy.com account."
+        echo "Please proceed to https://www.copy.com and create an account. Exiting..."
+    fi
 }
 
 # checks current processes to make sure the copy daemon started/stopped 
@@ -73,7 +92,14 @@ process(){
             [[ -z "$CURRENTPID" ]] && echo "$STOPSUCCESS" || echo "$STOPFAILURE"
             ;;
         "init")
-            [[ -n "$CURRENTPID" ]] && status; echo "$STATUS. Exiting..."; exit || stop
+            if [ -z "$CURRENTPID" ]; then
+                status
+                echo "$STATUS. Exiting..." 
+                exit 
+            else
+                stop > /dev/null
+                echo "Setup successful."
+            fi
             ;;
         *)
             ;;
@@ -82,25 +108,10 @@ process(){
 
 # set current status
 status(){
-    STATUS="$(head -n 1 $SETUPDONE)"
-}
-
-# log in to copy.com
-login(){
-    echo -n "Do you already have a Copy.com account? [y/N]: "; read prompt
-    if [[ "$prompt" =~ [yY](es)* ]]; then
-        echo "To setup copy.com and backup your workspace, please enter your account information."
-        echo -n "email address: "; read email
-        echo -n "password: "; read -s pswrd; echo
-        $COPYCONSOLE -daemon -u="$email" -p="$pswrd" -r="$WORKDIR" > /dev/null
-        echo "Checking..."
-        process "init"
-
-        #cloudFiles=`$COPYCMD Cloud ls | sed -r 's/^L.*|^d.[ \t\f\v]*|^-.[ \t\f\v]*(\S* )//gm'`
-        #process "start"
+    if [ -e "$SETUPDONE" ]; then
+        STATUS="$(head -n 1 $SETUPDONE)"
     else
-        echo "Before proceeding with setup, you need a copy.com account."
-        echo "Please proceed to https://www.copy.com and create an account. Exiting..."
+        STATUS="$NOTINSTALLED"
     fi
 }
 
@@ -125,7 +136,7 @@ start(){
 stop(){
     if [ -n "$PID" ]; then
         echo "Stopping..."
-        kill ${PID}
+        kill $PID
         process "stop"
     else
         echo "Sync50 is not running!"
@@ -141,6 +152,7 @@ uninstall(){
     
 pushd ${HOME} >/dev/null
 
+echo "${C9_USER}/${C9_PROJECT}"
 
 if [ $# != 1 ]; then
     help
