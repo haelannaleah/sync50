@@ -21,7 +21,7 @@ readonly WORKDIR="${HOME}/workspace/bash_prac"   # TODO: address to workspace
 readonly COPYLOC="${HOME}/copy"                  # location of the copy folder
 readonly DOTCOPY="${HOME}/.copy"                 # location of the metadata
 readonly STATUSFILE="$DOTCOPY/status.txt"        # location of status data
-readonly WATCHPID="$DOTCOPY/watchPID.txt"       # location of process id for running watch daemon
+readonly WATCHPID="$DOTCOPY/watchPID.txt"        # location of process id for running watch daemon
 readonly SYNCDIR="$DOTCOPY/userdata"             # root directory of copy.com data
 readonly SYMLINKDIR="$SYNCDIR/$CLDUSERS"         # directory containing symlink
 readonly SYMLINK="$SYMLINKDIR/${C9_PROJECT}"     # symlink to workspace
@@ -53,6 +53,20 @@ readonly EXREGEX='s/^\///gm'                                # for listing exclud
 readonly LSREGEX='s/^d.[ \t\f\v]*|^-.[ \t\f\v]*(\S* )//gm'  # for listing files
 
 ################## BEGIN FUNCTION DEFINITIONS ##################################
+
+
+deleteExcludes(){
+    delete_helper(){
+        for file in $(ls "$1"); do
+            if [ "$file" != "$2" ]; then
+                rm -rf "$1/$file"
+            fi
+        done
+    }
+    delete_helper "$SYNCDIR" "$CLDWKSPCS"
+    delete_helper "$SYNCDIR/$CLDWKSPCS" "${C9_USER}"
+    delete_helper "$SYNCDIR/$CLDUSERS" "${C9_PROJECT}"
+}
 
 # climb through file tree and exlude all files not in project to prevent bricking IDE
 # usage: exclude [FILE/FOLDER TO KEEP] [PATH TO CURRENT DIR]
@@ -258,7 +272,7 @@ if [ $# != 1 ]; then
 fi
 
 case "$1" in
-    "--help")
+    "help")
         help
         ;;
     "start")
@@ -274,10 +288,15 @@ case "$1" in
     "uninstall")
         uninstall
         ;;
+    "--delete_local_excludes")
+        stop
+        exclude && deleteExcludes
+        start
+        ;;
     *)
         echo "sync50: unrecognized option '$1'"
         echo "Usage: sync50 [start|stop|status|uninstall]"
-        echo "Try 'sync50 --help' for more information."
+        echo "Try 'sync50 help' for more information."
         ;;
 esac
 exit
