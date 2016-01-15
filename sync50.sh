@@ -21,9 +21,6 @@ readonly SYNCDIR="$COPYLOC/userdata"             # root directory of copy.com da
 readonly SYMLINKDIR="$SYNCDIR/$CLDUSERS"         # directory containing symlink
 readonly SYMLINK="$SYMLINKDIR/${C9_PROJECT}"     # symlink to workspace
 
-readonly CS50="CS50 IDE"
-readonly WORKSPACE="$CS50"/"$WKSPC"
-
 # the copy.com cli that we're wrapping
 readonly COPYCMD="$COPYLOC/x86_64/CopyCmd"           
 readonly COPYCONSOLE="$COPYLOC/x86_64/CopyConsole"
@@ -45,9 +42,9 @@ readonly STARTFAILURE="Unable to start sync50 at this time."
 readonly STOPSUCCESS="Syncing stopped."
 readonly STOPFAILURE="Unable to stop sync50 at this time."
 
-# misc
-readonly LSREGEX='s/^d.[ \t\f\v]*|^-.[ \t\f\v]*(\S* )//gm'  # regex for listing files
-readonly EXREGEX='s/^\///gm'                                # regex for listing excludes
+# misc regexs
+readonly LSREGEX='s/^d.[ \t\f\v]*|^-.[ \t\f\v]*(\S* )//gm'  # for listing files
+readonly EXREGEX='s/^\///gm'                                # for listing excludes
 
 # displays information on the usage of this wrapper
 help(){
@@ -85,19 +82,20 @@ install(){
 # climb through file tree and exlude all files not in project to prevent bricking IDE
 # usage: exclude PROTECTED PATH
 exclude(){
-    #it's regex; don't panic
-    dir=$([[ $# = 2 ]] && echo "`$COPYCMD Cloud ls "$2" | sed -r "$LSREGEX" | tail -n +3`" || \
-        echo "`$COPYCMD Cloud ls | sed -r "$LSREGEX" | tail -n +2`")
-
+    dir=""
+    path=""
+    if [ $# = 2 ]; then
+         dir=`$COPYCMD Cloud ls "$2" | sed -r "$LSREGEX" | tail -n +3`
+         path="$2/"
+    else
+        dir=`$COPYCMD Cloud ls | sed -r "$LSREGEX" | tail -n +2`
+    fi
     echo "$dir" | while read file; do
+        echo -n "... "
         if [ "$file" != "$1" ]; then
-            echo "Excluding: $file"
-            $COPYCMD Cloud exclude -exclude "$dir/$file"
-        else
-            echo "not excluding: $file"
+            $COPYCMD Cloud exclude -exclude "$path$file" > /dev/null
         fi
     done
-    excludeFiles=`$COPYCMD Cloud exclude -list | sed -r "$EXREGEX" | tail -n +3`
 }
 
 # log in to copy.com after install
@@ -105,13 +103,14 @@ login(){
     echo -n "Do you already have a Copy.com account? [y/N]: "; read prompt
     if [[ "$prompt" =~ [yY](es)* ]]; then
         echo "To setup copy.com and backup your workspace, please enter your account information."
-        #echo -n "email address: "; read email
-        #echo -n "password: "; read -s pswrd; echo
+        echo -n "email address: "; read email
+        echo -n "password: "; read -s pswrd; echo
         echo "Checking..."
+        [ -z $pswrd ] && echo "$INVALIDLOGN" && exit    # check for null password
         
         # attempt to login user
-        #$COPYCONSOLE -daemon -u="$email" -p="$pswrd" -r="$SYNCDIR" > /dev/null
-        $COPYCONSOLE -daemon -u="annaleahernst@college.harvard.edu" -p="abc123ABC" -r="$SYNCDIR" > /dev/null
+        $COPYCONSOLE -daemon -u="$email" -p="$pswrd" -r="$SYNCDIR" > /dev/null
+        #$COPYCONSOLE -daemon -u="annaleahernst@college.harvard.edu" -p="abc123ABC" -r="$SYNCDIR" > /dev/null
         process "init"
     else
         echo "Before proceeding with setup, you need a copy.com account."
@@ -153,9 +152,14 @@ process(){
                 # stop syncing and handle excludes
                 stop > /dev/null
                 echo "Setup successful. Beginning excludes. This may take a few minutes..."
+                
+                # exclude files in each sub directory
                 exclude "$CLDWKSPCS"
                 exclude "${C9_USER}" "$CLDWKSPCS"
                 exclude "${C9_PROJECT}" "$CLDUSERS"
+                echo
+                echo "Exclusions complete."
+                start
             fi
             ;;
         *)
@@ -202,6 +206,7 @@ stop(){
 
 # uninstall copy
 uninstall(){
+    stop
     unlink "$SYMLINK"
     rm -rf "$COPYLOC"
     rm -rf "$DOTCOPY"
