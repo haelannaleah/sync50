@@ -1,38 +1,53 @@
 #!/bin/bash
+# sync50
+# a wrapper for copy.com
+#
+# by Annaleah Ernst
+# jterm 2016
+# annaleahernst@college.harvard.edu
 
-# locations of important files on the local machine
-COPYLOC="${HOME}/copy"                      # location of the copy folder
-DOTCOPY="${HOME}/.copy"                     # location of the metadata
-SYNCDIR="$COPYLOC/userdata"                 # root directory of copy.com data
-SYMLINKDIR="$SYNCDIR/workspaces/${C9_USER}" # directory containing symlink
-SYMLINK="$SYMLINKDIR/${C9_PROJECT}"         # symlink to workspace
-#WORKDIR=${HOME}/"$WORKSPACE"               # adress to workspace
-WORKDIR="${HOME}/workspace/bash_prac2"
-STATUSFILE="$DOTCOPY/status.txt"            # location of status data
 
-CS50="CS50 IDE"
-WORKSPACE="$CS50"/"$WKSPC"
+# important cloud paths
+readonly CLDWKSPCS="workspaces"
+readonly CLDUSERS="$CLDWKSPCS/${C9_USER}"
+readonly CLDPRJCT="$CLDUSERS/${C9_PROJECT}"
+
+# important local paths
+readonly WORKDIR="${HOME}/workspace/bash_prac2"  # TODO: address to workspace
+readonly COPYLOC="${HOME}/copy"                  # location of the copy folder
+readonly DOTCOPY="${HOME}/.copy"                 # location of the metadata
+readonly STATUSFILE="$DOTCOPY/status.txt"        # location of status data
+readonly SYNCDIR="$COPYLOC/userdata"             # root directory of copy.com data
+readonly SYMLINKDIR="$SYNCDIR/$CLDUSERS"         # directory containing symlink
+readonly SYMLINK="$SYMLINKDIR/${C9_PROJECT}"     # symlink to workspace
+
+readonly CS50="CS50 IDE"
+readonly WORKSPACE="$CS50"/"$WKSPC"
 
 # the copy.com cli that we're wrapping
-COPYCMD="${HOME}/copy/x86_64/CopyCmd"           
-COPYCONSOLE="${HOME}/copy/x86_64/CopyConsole"
+readonly COPYCMD="$COPYLOC/x86_64/CopyCmd"           
+readonly COPYCONSOLE="$COPYLOC/x86_64/CopyConsole"
 
 # status
 STATUS=""
-MISSLOGIN="Missing Login Information"
-INVALIDLOGN="Incorrect username or password"
-NOTINSTALLED="Sync50 has not been installed. Type 'sync50 start' to begin setup."
+readonly MISSLOGIN="Missing Login Information"
+readonly INVALIDLOGN="Incorrect username or password"
+readonly NOTINSTALLED="Sync50 has not been installed. Type 'sync50 start' to begin setup."
 
 # process variables; name, ID
-PROCESSNAME="CopyConsole"
+readonly PROCESSNAME="CopyConsole"
 PID=`ps -ef | grep "$PROCESSNAME" | grep -v grep | awk '{print $2}'`
-TIMEOUT=5       # process times out after this many seconds
+readonly TIMEOUT=5       # process times out after this many seconds
 
 # messages
-STARTSUCCESS="Syncing started successfully!"
-STARTFAILURE="Unable to start sync50 at this time."
-STOPSUCCESS="Syncing stopped."
-STOPFAILURE="Unable to stop sync50 at this time."
+readonly STARTSUCCESS="Syncing started successfully!"
+readonly STARTFAILURE="Unable to start sync50 at this time."
+readonly STOPSUCCESS="Syncing stopped."
+readonly STOPFAILURE="Unable to stop sync50 at this time."
+
+# misc
+readonly LSREGEX='s/^d.[ \t\f\v]*|^-.[ \t\f\v]*(\S* )//gm'  # regex for listing files
+readonly EXREGEX='s/^\///gm'                                # regex for listing excludes
 
 # displays information on the usage of this wrapper
 help(){
@@ -45,7 +60,7 @@ help(){
 
 # installs the copy.com binaries for the first time
 install(){
-    if [ ! -e "$COPYLOC" ]; then
+    if [ ! -e "$COPYCMD" ]; then
         echo "Downloading Copy...."
         wget -q -O - "https://copy.com/install/linux/Copy.tgz" |  tar xzf -
         
@@ -66,10 +81,23 @@ install(){
     start
 }
 
+
+# climb through file tree and exlude all files not in project to prevent bricking IDE
+# usage: exclude PROTECTED PATH
 exclude(){
-    rootDir=`$COPYCMD Cloud ls | sed -r 's/^d.[ \t\f\v]*|^-.[ \t\f\v]*(\S* )//gm' | tail -n +2`
-    for path in "$rootDir"; do
+    #it's regex; don't panic
+    dir=$([[ $# = 2 ]] && echo "`$COPYCMD Cloud ls "$2" | sed -r "$LSREGEX" | tail -n +3`" || \
+        echo "`$COPYCMD Cloud ls | sed -r "$LSREGEX" | tail -n +2`")
+
+    echo "$dir" | while read file; do
+        if [ "$file" != "$1" ]; then
+            echo "Excluding: $file"
+            $COPYCMD Cloud exclude -exclude "$dir/$file"
+        else
+            echo "not excluding: $file"
+        fi
     done
+    excludeFiles=`$COPYCMD Cloud exclude -list | sed -r "$EXREGEX" | tail -n +3`
 }
 
 # log in to copy.com after install
@@ -77,12 +105,13 @@ login(){
     echo -n "Do you already have a Copy.com account? [y/N]: "; read prompt
     if [[ "$prompt" =~ [yY](es)* ]]; then
         echo "To setup copy.com and backup your workspace, please enter your account information."
-        echo -n "email address: "; read email
-        echo -n "password: "; read -s pswrd; echo
+        #echo -n "email address: "; read email
+        #echo -n "password: "; read -s pswrd; echo
         echo "Checking..."
         
         # attempt to login user
-        $COPYCONSOLE -daemon -u="$email" -p="$pswrd" -r="$SYNCDIR" > /dev/null
+        #$COPYCONSOLE -daemon -u="$email" -p="$pswrd" -r="$SYNCDIR" > /dev/null
+        $COPYCONSOLE -daemon -u="annaleahernst@college.harvard.edu" -p="abc123ABC" -r="$SYNCDIR" > /dev/null
         process "init"
     else
         echo "Before proceeding with setup, you need a copy.com account."
@@ -121,9 +150,12 @@ process(){
                 echo "$STATUS. Exiting..." 
                 exit 
             else
-                # stop syncing and handle exludes
+                # stop syncing and handle excludes
                 stop > /dev/null
-                echo "Setup successful."
+                echo "Setup successful. Beginning excludes. This may take a few minutes..."
+                exclude "$CLDWKSPCS"
+                exclude "${C9_USER}" "$CLDWKSPCS"
+                exclude "${C9_PROJECT}" "$CLDUSERS"
             fi
             ;;
         *)
@@ -175,15 +207,8 @@ uninstall(){
     rm -rf "$DOTCOPY"
     echo "Copy has been uninstalled."
 }
-    
+
 pushd ${HOME} >/dev/null
-
-cloudFiles=`$COPYCMD Cloud ls | sed -r 's/^d.[ \t\f\v]*|^-.[ \t\f\v]*(\S* )//gm' | tail -n +2`
-
-for file in $cloudFiles; do
-    echo $file
-done
-
 
 if [ $# != 1 ]; then
     help
