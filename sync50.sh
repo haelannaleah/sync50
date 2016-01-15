@@ -80,14 +80,17 @@ install(){
 
 
 # climb through file tree and exlude all files not in project to prevent bricking IDE
-# usage: exclude PROTECTED PATH
+# usage: exclude [FILE/FOLDER TO KEEP] [PATH TO CURRENT DIR]
 exclude(){
     dir=""
     path=""
+    # get stripped down file/directory names
     if [ $# = 2 ]; then
-         dir=`$COPYCMD Cloud ls "$2" | sed -r "$LSREGEX" | tail -n +3`
-         path="$2/"
+        # starting at 3rd line of search results; first line is metadata, 2nd is pwd
+        dir=`$COPYCMD Cloud ls "$2" | sed -r "$LSREGEX" | tail -n +3`
+        path="$2/"
     else
+        # starting at 2nd line of search results; first is metadata
         dir=`$COPYCMD Cloud ls | sed -r "$LSREGEX" | tail -n +2`
     fi
     echo "$dir" | while read file; do
@@ -244,8 +247,6 @@ case "$1" in
         ;;
 esac
 exit
-
-# directory regex: ^L.*|^d.[ \t\f\v]*|^-.[ \t\f\v]*(\S* ), MULTILINE
 
 # remove the login line, and all non file name lines
 
