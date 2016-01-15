@@ -13,11 +13,11 @@ readonly CLDUSERS="$CLDWKSPCS/${C9_USER}"
 readonly CLDPRJCT="$CLDUSERS/${C9_PROJECT}"
 
 # important local paths
-readonly WORKDIR="${HOME}/workspace/bash_prac2"  # TODO: address to workspace
+readonly WORKDIR="${HOME}/workspace/bash_prac"   # TODO: address to workspace
 readonly COPYLOC="${HOME}/copy"                  # location of the copy folder
 readonly DOTCOPY="${HOME}/.copy"                 # location of the metadata
 readonly STATUSFILE="$DOTCOPY/status.txt"        # location of status data
-readonly SYNCDIR="$COPYLOC/userdata"             # root directory of copy.com data
+readonly SYNCDIR="$DOTCOPY/userdata"             # root directory of copy.com data
 readonly SYMLINKDIR="$SYNCDIR/$CLDUSERS"         # directory containing symlink
 readonly SYMLINK="$SYMLINKDIR/${C9_PROJECT}"     # symlink to workspace
 
@@ -25,15 +25,15 @@ readonly SYMLINK="$SYMLINKDIR/${C9_PROJECT}"     # symlink to workspace
 readonly COPYCMD="$COPYLOC/x86_64/CopyCmd"           
 readonly COPYCONSOLE="$COPYLOC/x86_64/CopyConsole"
 
-# status
+# status messages
 STATUS=""
-readonly MISSLOGIN="Missing Login Information"
 readonly INVALIDLOGN="Incorrect username or password"
+readonly MISSLOGIN="Missing Login Information"
 readonly NOTINSTALLED="Sync50 has not been installed. Type 'sync50 start' to begin setup."
 
 # process variables; name, ID
 readonly PROCESSNAME="CopyConsole"
-PID=`ps -ef | grep "$PROCESSNAME" | grep -v grep | awk '{print $2}'`
+PID=$(ps -ef | grep "$PROCESSNAME" | grep -v grep | awk '{print $2}')
 readonly TIMEOUT=5       # process times out after this many seconds
 
 # messages
@@ -42,17 +42,18 @@ readonly STARTFAILURE="Unable to start sync50 at this time."
 readonly STOPSUCCESS="Syncing stopped."
 readonly STOPFAILURE="Unable to stop sync50 at this time."
 
-# misc regexs
-readonly LSREGEX='s/^d.[ \t\f\v]*|^-.[ \t\f\v]*(\S* )//gm'  # for listing files
+# misc regexs (don't panic)
 readonly EXREGEX='s/^\///gm'                                # for listing excludes
+readonly LSREGEX='s/^d.[ \t\f\v]*|^-.[ \t\f\v]*(\S* )//gm'  # for listing files
 
 # displays information on the usage of this wrapper
 help(){
     echo "Usage: sync50 [FUNCTION]"
     echo "Functions:"
-    echo -e "\tinstall\t\tinstall copy.com binaries and set up account"
     echo -e "\tstart\t\tstart copy.com syncing, or install if first run"
-    echo -e "\tstop\t\tstop copy.com syncing"
+    echo -e "\tstop\t\tstop Copy.com syncing"
+    echo -e "\tstatus\t\tget the status of the current instance"
+    echo -e "\tuninstall\t\tremove Copy.com files"
 }
 
 # installs the copy.com binaries for the first time
@@ -67,7 +68,7 @@ install(){
             echo "$MISSLOGIN" > "$STATUSFILE"
         fi
         
-        # create cloud root dir and link to current workspace 
+        # create root dir for the cloud and link to current workspace 
         mkdir -p "$SYMLINKDIR"  
         ln -s "$WORKDIR" "$SYMLINK" 
         
@@ -87,11 +88,11 @@ exclude(){
     # get stripped down file/directory names
     if [ $# = 2 ]; then
         # starting at 3rd line of search results; first line is metadata, 2nd is pwd
-        dir=`$COPYCMD Cloud ls "$2" | sed -r "$LSREGEX" | tail -n +3`
+        dir=$($COPYCMD Cloud ls "$2" | sed -r "$LSREGEX" | tail -n +3)
         path="$2/"
     else
         # starting at 2nd line of search results; first is metadata
-        dir=`$COPYCMD Cloud ls | sed -r "$LSREGEX" | tail -n +2`
+        dir=$($COPYCMD Cloud ls | sed -r "$LSREGEX" | tail -n +2)
     fi
     echo "$dir" | while read file; do
         echo -n "... "
@@ -105,7 +106,7 @@ exclude(){
 login(){
     echo -n "Do you already have a Copy.com account? [y/N]: "; read prompt
     if [[ "$prompt" =~ [yY](es)* ]]; then
-        echo "To setup copy.com and backup your workspace, please enter your account information."
+        echo "To setup Copy.com and backup your workspace, please enter your account information."
         echo -n "email address: "; read email
         echo -n "password: "; read -s pswrd; echo
         echo "Checking..."
@@ -121,9 +122,13 @@ login(){
     fi
 }
 
-# handles current CopyConsole process
+# handles current CopyConsole daemon process
 # arguments: [start|stop|init]
-# start: check if 
+# start: PID starts as "". Run until PID changes to a value or timeout, report success or failure
+# stop: PID starts as a value. Run until PID changes to "" or timeout, report success or failure
+# init: PID starts as "". Run until PID changes to a value, report failure or if successful...
+#       immediately run stop to prevent syncing. Run exlcude on the cloud file tree. Finally,
+#       run start to begin syncing.
 process(){
     CURRENTPID=$PID
     COUNTER=0
@@ -156,7 +161,7 @@ process(){
                 stop > /dev/null
                 echo "Setup successful. Beginning excludes. This may take a few minutes..."
                 
-                # exclude files in each sub directory
+                # exclude files in each sub directory of our workspaces tree
                 exclude "$CLDWKSPCS"
                 exclude "${C9_USER}" "$CLDWKSPCS"
                 exclude "${C9_PROJECT}" "$CLDUSERS"
@@ -207,13 +212,21 @@ stop(){
     fi
 }
 
-# uninstall copy
+# (safely) uninstall copy
 uninstall(){
-    stop
-    unlink "$SYMLINK"
-    rm -rf "$COPYLOC"
-    rm -rf "$DOTCOPY"
-    echo "Copy has been uninstalled."
+    if [ -e $COPYCMD ]; then
+        echo -n "Are you sure you want to uninstall Copy? [y/N]: "; read prompt
+        if [[ "$prompt" =~ [yY](es)* ]]; then 
+            echo "Uninstalling..."
+            stop > /dev/null
+            unlink "$SYMLINK"
+            rm -rf "$COPYLOC"
+            rm -rf "$DOTCOPY"
+            echo "Copy has been uninstalled."
+        fi
+    else 
+        echo "Copy is not installed!"
+    fi
 }
 
 pushd ${HOME} >/dev/null
