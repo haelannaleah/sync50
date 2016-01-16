@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# TODO: pair down last argument
 # five arguments as a temporary measure; will be pair down to 4 when path esablished
 # fifth argument is path to sync50 and sync50daemon
 # first argument is a file we don't want to watch

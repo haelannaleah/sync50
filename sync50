@@ -3,12 +3,11 @@
 # a wrapper for copy.com
 #
 # by Annaleah Ernst
-# jterm 2016
+# CS50 jterm 2016
 # annaleahernst@college.harvard.edu
 
 ############### BEGIN GLOBAL AND CONSTANT DECLARATIONS #########################
-
-set -uo pipefail
+set -euo pipefail
 IFS=$'\n\t'
 
 # important cloud paths
@@ -37,10 +36,13 @@ readonly INVALIDLOGN="Incorrect username or password"
 readonly MISSLOGIN="Missing Login Information"
 readonly NOTINSTALLED="Sync50 has not been installed. Type 'sync50 start' to begin setup."
 readonly NOWATCH="No watch running"
+readonly NOTRUN="Sync50 is not running!"
 
 # process variables; name, ID
 readonly PROCESSNAME="CopyConsole"
+set +e
 PID=$(ps -ef | grep "$PROCESSNAME" | grep -v grep | awk '{print $2}')
+set -e
 readonly TIMEOUT=5       # process times out after this many seconds
 
 # messages
@@ -48,6 +50,7 @@ readonly STARTSUCCESS="Syncing started successfully!"
 readonly STARTFAILURE="Unable to start sync50 at this time."
 readonly STOPSUCCESS="Syncing stopped."
 readonly STOPFAILURE="Unable to stop sync50 at this time."
+readonly CLDFAILURE="ERROR: Failure to connect with cloud. Try again later. Exitting..."
 
 # misc regexs (don't panic)
 readonly EXREGEX='s/^\///gm'                                # for listing excludes
@@ -61,6 +64,7 @@ deleteExcludes(){
         for file in $(ls "$1"); do
             if [ "$file" != "$2" ]; then
                 rm -rf "$1/$file"
+                echo "remove local exlcudes ret: $?"
             fi
         done
     }
@@ -72,24 +76,26 @@ deleteExcludes(){
 
 # climb through file tree and exlude all files not in project to prevent bricking IDE
 exclude(){
-    # usage: exclude_helper [FILE/FOLDER TO KEEP] [PATH TO CURRENT DIR]
+    # usage: exclude_helper [FILE/FOLDER TO KEEP] ([PATH TO CURRENT DIR])
     exclude_helper(){
         dir=""
         path=""
         # get stripped down file/directory names
         if [ $# = 2 ]; then
-            # starting at 3rd line of search results; first line is metadata, 2nd is pwd
-            dir=$($COPYCMD Cloud ls "$2" | sed -r "$LSREGEX" | tail -n +3)
+            # set path, start at 3rd line of search results; first line is metadata, 2nd is pwd
             path="$2/"
+            dir=$($COPYCMD Cloud ls "$2" | sed -r "$LSREGEX" | tail -n +3)
         else
             # starting at 2nd line of search results; first is metadata
             dir=$($COPYCMD Cloud ls | sed -r "$LSREGEX" | tail -n +2)
         fi
-        # echo "$dir" | while read file; do
+        [[ "$?" != 0 ]] && echo "$CLDFAILURE" && stop > /dev/null   # error check cloud cli
+        
         for file in $dir; do
             if [ "$file" != "$1" ]; then
                 echo -n "... "
                 $COPYCMD Cloud exclude -exclude "$path$file" > /dev/null
+                [[ "$?" != 0 ]] && echo "$CLDFAILURE" && stop > /dev/null   # error check cloud cli
             fi
         done
     }
@@ -115,6 +121,8 @@ install(){
     if [ ! -e "$COPYCMD" ]; then
         echo "Downloading Copy...."; echo -n "... "
         wget -q -O - "https://copy.com/install/linux/Copy.tgz" |  tar xzf - > /dev/null; echo -n "... "
+        [[ "$?" != 0 ]] && echo "$CLDFAILURE" && stop > /dev/null   # error check cloud cli
+        
         # TODO: assume this is installed already # sudo apt-get install -y inotify-tools > /dev/null
         echo -n "..."; echo
         
@@ -148,6 +156,7 @@ login(){
         
         # attempt to login user
         $COPYCONSOLE -daemon -u="$email" -p="$pswrd" -r="$SYNCDIR" > /dev/null
+        [[ "$?" != 0 ]] && echo "$CLDFAILURE" && stop > /dev/null   # error check cloud cli
         process "init"
     else
         echo "Before completing setup, you need a copy.com account."
@@ -166,13 +175,15 @@ process(){
     currentPID=$PID
     counter=0
     # until there's a process id state change or we run out of time, search for process
+    set +e
     until [ "$currentPID" != "$PID" ] || [ $counter = $TIMEOUT ]; do
         echo -n "... "
         sleep 1
         currentPID=$(ps -ef | grep "$PROCESSNAME" | grep -v grep | awk '{print $2}')
         let counter+=1
     done; echo
-    PID="$currentPID" # update current PID
+    set -e
+    PID="$currentPID" # update PID
     
     case "$1" in
         "start")
@@ -217,18 +228,20 @@ start(){
     status  # get status
     if [ ! -e "$COPYLOC" ]; then
         install
-    elif [ "$STATUS"  = "$MISSLOGIN" ] || [ "$STATUS"  = "$INVALIDLOGN" ]; then
+    elif [ "$STATUS" = "$MISSLOGIN" ] || [ "$STATUS" = "$INVALIDLOGN" ]; then
         echo "Account not setup."
         login
     elif [ -z "$PID" ]; then
+        echo "return at the start of start: $?"
         echo "Starting..."
         
         # begin the daemon running in the background to deal with new files
         "$SYNC50PATH/sync50daemon" "@$SYNCDIR/$CLDPRJCT" "$SYNCDIR" "$SYNCDIR/$CLDWKSPCS" "$SYNCDIR/$CLDUSERS" \
-            "$SYNC50PATH" &> "$DOTCOPY/mylog.txt" & 
-        echo $! > "$WATCHPID"
+            "$SYNC50PATH" &> "$DOTCOPY/mylog.txt" & echo $! > "$WATCHPID"
+
         # start copy daemon
-        $COPYCONSOLE -daemon > /dev/null    
+        $COPYCONSOLE -daemon > /dev/null  
+        [[ "$?" != 0 ]] && echo "$CLDFAILURE" && stop > /dev/null   # error check cloud cli
         process "start"
     else
         echo "Sync50 is already running!"
@@ -243,8 +256,9 @@ stop(){
         watchPID=$(head -n 1 $WATCHPID) # get the process id of the watcher daemon
         [[ "$watchPID" != "$NOWATCH" ]] && kill $watchPID; echo "$NOWATCH" > "$WATCHPID"
         process "stop"
+        echo "$NOTRUN" > "$STATUSFILE"
     else
-        echo "Sync50 is not running!"
+        echo "$NOTRUN"
     fi
 }
 
