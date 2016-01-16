@@ -17,7 +17,7 @@ readonly CLDUSERS="$CLDWKSPCS/${C9_USER}"
 readonly CLDPRJCT="$CLDUSERS/${C9_PROJECT}"
 
 # important local paths
-readonly WORKDIR="${HOME}/workspace/bash_prac"   # TODO: address to workspace
+readonly WORKDIR="${HOME}/workspace"             # TODO: address to workspace
 readonly COPYLOC="${HOME}/copy"                  # location of the copy folder
 readonly DOTCOPY="${HOME}/.copy"                 # location of the metadata
 readonly STATUSFILE="$DOTCOPY/status.txt"        # location of status data
