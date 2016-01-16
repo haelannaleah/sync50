@@ -228,6 +228,9 @@ start(){
         
         # this will be the process id of our little daemon
         # "$WATCHPID"
+        # inotifywait "@$SYNCDIR/$CLDPRJCT" "$SYNCDIR" "$SYNCDIR/$CLDWKSPCS" "$SYNCDIR/$CLDUSERS" \
+        sync50daemon "@$SYNCDIR/$CLDPRJCT" "$SYNCDIR" "$SYNCDIR/$CLDWKSPCS" "$SYNCDIR/$CLDUSERS" \
+            & echo $! > "$WATCHPID"
             
         # start copy daemon
         $COPYCONSOLE -daemon > /dev/null    
