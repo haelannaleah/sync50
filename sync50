@@ -307,7 +307,3 @@ case "$1" in
         ;;
 esac
 exit
-
-# cloudFiles=`$COPYCMD Cloud ls | sed -r 's/^d.[ \t\f\v]*|^-.[ \t\f\v]*(\S* )//gm' | tail -n +2`
-
-# excludeFiles=`$COPYCMD Cloud exclude -list | sed -r 's/^\///gm' | tail -n +3`
