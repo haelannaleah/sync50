@@ -7,7 +7,7 @@
 # annaleahernst@college.harvard.edu
 
 ############### BEGIN GLOBAL AND CONSTANT DECLARATIONS #########################
-set -euo pipefail
+set -uo pipefail
 IFS=$'\n\t'
 
 # important cloud paths
@@ -40,9 +40,7 @@ readonly NOTRUN="Sync50 is not running!"
 
 # process variables; name, ID
 readonly PROCESSNAME="CopyConsole"
-set +e
 PID=$(ps -ef | grep "$PROCESSNAME" | grep -v grep | awk '{print $2}')
-set -e
 readonly TIMEOUT=5       # process times out after this many seconds
 
 # messages
@@ -57,6 +55,16 @@ readonly EXREGEX='s/^\///gm'                                # for listing exclud
 readonly LSREGEX='s/^d.[ \t\f\v]*|^-.[ \t\f\v]*(\S* )//gm'  # for listing files
 
 ################## BEGIN FUNCTION DEFINITIONS ##################################
+
+# used to standardize error detection
+check(){
+    # error check cloud cli
+    if [ "$?" != 0 ]; then 
+        echo "$CLDFAILURE" 
+        stop
+        exit
+    fi
+}
 
 # deletes files that are excluded on the cloud and have been (sneakily) downloaded locally 
 deleteExcludes(){
@@ -89,13 +97,13 @@ exclude(){
             # starting at 2nd line of search results; first is metadata
             dir=$($COPYCMD Cloud ls | sed -r "$LSREGEX" | tail -n +2)
         fi
-        [[ "$?" != 0 ]] && echo "$CLDFAILURE" && stop > /dev/null   # error check cloud cli
+        check # error check cloud cli
         
         for file in $dir; do
             if [ "$file" != "$1" ]; then
                 echo -n "... "
                 $COPYCMD Cloud exclude -exclude "$path$file" > /dev/null
-                [[ "$?" != 0 ]] && echo "$CLDFAILURE" && stop > /dev/null   # error check cloud cli
+                check # error check cloud cli
             fi
         done
     }
@@ -121,9 +129,11 @@ install(){
     if [ ! -e "$COPYCMD" ]; then
         echo "Downloading Copy...."; echo -n "... "
         wget -q -O - "https://copy.com/install/linux/Copy.tgz" |  tar xzf - > /dev/null; echo -n "... "
-        [[ "$?" != 0 ]] && echo "$CLDFAILURE" && stop > /dev/null   # error check cloud cli
+        check # error check download
         
-        # TODO: assume this is installed already # sudo apt-get install -y inotify-tools > /dev/null
+        # TODO: assume this is installed already 
+        # sudo apt-get install -y inotify-tools > /dev/null
+        # check
         echo -n "..."; echo
         
         # make the metadata folder if copy.com was lazy
@@ -156,7 +166,7 @@ login(){
         
         # attempt to login user
         $COPYCONSOLE -daemon -u="$email" -p="$pswrd" -r="$SYNCDIR" > /dev/null
-        [[ "$?" != 0 ]] && echo "$CLDFAILURE" && stop > /dev/null   # error check cloud cli
+        check # error check cloud cli
         process "init"
     else
         echo "Before completing setup, you need a copy.com account."
@@ -240,7 +250,7 @@ start(){
 
         # start copy daemon
         $COPYCONSOLE -daemon > /dev/null  
-        [[ "$?" != 0 ]] && echo "$CLDFAILURE" && stop > /dev/null   # error check cloud cli
+        check # error check cloud cli
         process "start"
     else
         echo "Sync50 is already running!"
