@@ -6,13 +6,15 @@ readonly CLDUSERS="$CLDWKSPCS/${C9_USER}"
 readonly CLDPRJCT="$CLDUSERS/${C9_PROJECT}"
 readonly DOTCOPY="${HOME}/.copy"                 # location of the metadata
 readonly SYNCDIR="$DOTCOPY/userdata"             # root directory of copy.com data
-
+readonly SYNC50PATH=$(pwd)
 
 start(){
-    while true; do
+    counter=0
+    while [ true ]; do
         # begin watching directories of interest for unwanted changes and store process id
         inotifywait "@$SYNCDIR/$CLDPRJCT" "$SYNCDIR" "$SYNCDIR/$CLDWKSPCS" "$SYNCDIR/$CLDUSERS" \
-            -e move,create & echo $! > "$WATCHPID" && echo hi!
+            -e move,create && "$SYNCH50PATH/sync50" "--delete_local_excludes"
+        let counter+=1
     done
 }
 
