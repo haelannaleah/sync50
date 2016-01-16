@@ -113,7 +113,7 @@ install(){
     if [ ! -e "$COPYCMD" ]; then
         echo "Downloading Copy...."; echo -n "... "
         wget -q -O - "https://copy.com/install/linux/Copy.tgz" |  tar xzf - > /dev/null; echo -n "... "
-        sudo apt-get install inotify-tools > /dev/null
+        # sudo apt-get install -y inotify-tools > /dev/null
         echo -n "..."; echo
         
         # make the metadata folder if copy.com was lazy
