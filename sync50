@@ -232,12 +232,11 @@ start(){
         echo "Account not setup."
         login
     elif [ -z "$PID" ]; then
-        echo "return at the start of start: $?"
         echo "Starting..."
         
         # begin the daemon running in the background to deal with new files
         "$SYNC50PATH/sync50daemon" "@$SYNCDIR/$CLDPRJCT" "$SYNCDIR" "$SYNCDIR/$CLDWKSPCS" "$SYNCDIR/$CLDUSERS" \
-            "$SYNC50PATH" &> "$DOTCOPY/mylog.txt" & echo $! > "$WATCHPID"
+            "$SYNC50PATH" &> /dev/null & echo $! > "$WATCHPID"
 
         # start copy daemon
         $COPYCONSOLE -daemon > /dev/null  

@@ -5,7 +5,7 @@
 # fifth argument is path to sync50 and sync50daemon
 # first argument is a file we don't want to watch
 # middle 3 are the directories we want to watch for changes
-# designed this way to allow correct path names to happen if sync50's constants are changed
+# designed this way to force correct path names to happen if sync50's constants are changed
 [[ $# = 5 ]] && while [ true ]; do
     # begin watching directories of interest for unwanted changes
     inotifywait "$1" "$2" "$3" "$4" -e move,create && "$5/sync50" "--delete_local_excludes"
