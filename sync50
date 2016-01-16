@@ -25,7 +25,7 @@ readonly WATCHPID="$DOTCOPY/watchPID.txt"        # location of process id for ru
 readonly SYNCDIR="$DOTCOPY/userdata"             # root directory of copy.com data
 readonly SYMLINKDIR="$SYNCDIR/$CLDUSERS"         # directory containing symlink
 readonly SYMLINK="$SYMLINKDIR/${C9_PROJECT}"     # symlink to workspace
-readonly SYNC50PATH=$(pwd)
+readonly SYNC50PATH="${HOME}/workspace/sync50"
 
 # the copy.com cli that we're wrapping
 readonly COPYCMD="$COPYLOC/x86_64/CopyCmd"           
@@ -145,8 +145,7 @@ login(){
         [ -z $pswrd ] && echo "$INVALIDLOGN" && exit    # check for null password
         
         # attempt to login user
-        #$COPYCONSOLE -daemon -u="$email" -p="$pswrd" -r="$SYNCDIR" > /dev/null
-        $COPYCONSOLE -daemon -u="annaleahernst@college.harvard.edu" -p="abc123ABC" -r="$SYNCDIR" > /dev/null
+        $COPYCONSOLE -daemon -u="$email" -p="$pswrd" -r="$SYNCDIR" > /dev/null
         process "init"
     else
         echo "Before completing setup, you need a copy.com account."
@@ -230,8 +229,8 @@ start(){
         # "$WATCHPID"
         # inotifywait "@$SYNCDIR/$CLDPRJCT" "$SYNCDIR" "$SYNCDIR/$CLDWKSPCS" "$SYNCDIR/$CLDUSERS" \
         "$SYNC50PATH/sync50daemon" "@$SYNCDIR/$CLDPRJCT" "$SYNCDIR" "$SYNCDIR/$CLDWKSPCS" "$SYNCDIR/$CLDUSERS" \
-            & echo $! > "$WATCHPID"
-        echo $!
+            "$SYNC50PATH" &> "$DOTCOPY/mylog.txt" & 
+        echo $! > "$WATCHPID"
         # start copy daemon
         $COPYCONSOLE -daemon > /dev/null    
         process "start"
