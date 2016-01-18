@@ -37,7 +37,7 @@ downloaded, which in turn prevents overfilling the IDE.
 
 # Design
 
-# sync50daemon
+## sync50daemon
 Accepts 4 input arguments (currently accepts 5, but should be paired down to 4 when
 sync50 is installed in bin). These arguments are: the directory to ignore, and three
 directories to watch for changes. This daemon runs in the background until killed,
@@ -46,7 +46,7 @@ it calls sync50 --delete_local_excludes, which calls stop, deleteExcludes, exclu
 and start. This is how sync50 is able to dynamically avoid downloading extraneous 
 files even after initial install.
 
-# sync50
+## sync50
 
 ### check
 Checks the exit status of the most recently called function, and if it is non-zero,
@@ -60,22 +60,22 @@ adds extraneous files or new workspaces.
 
 ### exclude
 Adds extraneous files to the exclude list. It uses a regex to strip the output of
-CopyCmd Cloud ls (listing the files on the cloud) to a usable form. Ex:
-    In the directory workspaces
-        Logged in as annaleahernst@college.harvard.edu
-        dX          workspaces
-        dX          users
-        -X          test_file.c
-        -X          more tests.txt
-    is stripped to
-        users
-        test_file.c
-        more tests.txt
+CopyCmd Cloud ls (listing the files on the cloud) to a usable form. Ex: \n
+\t In the directory workspaces \n
+\t\t Logged in as annaleahernst@college.harvard.edu \n
+\t\t dX \t\t\t workspaces \n
+\t\t dX \t\t\t users \n
+\t\t -X \t\t\t test_file.c \n
+\t\t -X \t\t\t more tests.txt \n
+\t is stripped to \n
+\t\t users \n
+\t\t test_file.c \n
+\t\t more tests.txt \n
 Each file or folder that is not supposed to be synced is ignored. The file
-hierarchy of the copy.com/cloud9 workspaces should be invariant;
-in the copy root directory, exclude everything but "workspaces"
-in workspaces, exclude everything but "$USER"
-in "<$USER>", exclude everything but "<$PROJECT>"
+hierarchy of the copy.com/cloud9 workspaces should be invariant; \n
+in the copy root directory, exclude everything but "workspaces" \n
+in workspaces, exclude everything but "$USER" \n
+in "<$USER>", exclude everything but "<$PROJECT>" \n
 
 ### help
 Display usage information
@@ -105,16 +105,16 @@ Handles the copy.com daemon. It takes a little fime for the CopyConsole daemon t
 get it's feet on the ground, so in the first part of this function, we wait for
 a state change by polling the current process list for "CopyConsole". Once it appears
 (or disappears), or times out, we exit the initial polling loop and update $PID.
-The following behavior depends on what the input argument was.
-    init:
-        If there is no process id, then nothing is running and login failed. We 
-        alert the user and exit. Else...
-        Immediately stop syncing. Call exclude to prevent syncing unwanted files.
-        After exclusions are complete, start syncing.
-    start:
-        If there is a process id, alert success, else failure
-    stop:
-        If there is not a process id, alert success, else failure
+The following behavior depends on what the input argument was. \n
+\t init: \n
+\t\t If there is no process id, then nothing is running and login failed. We 
+        alert the user and exit. Else... \n
+\t\t Immediately stop syncing. Call exclude to prevent syncing unwanted files.
+\t\t After exclusions are complete, start syncing. \n
+\t start: \n
+\t\t If there is a process id, alert success, else failure \n
+\t stop: \n
+\t\t If there is not a process id, alert success, else failure
 
 ### status
 Cat the contents of the status file and store them in $STATUS.
