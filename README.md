@@ -48,17 +48,17 @@ files even after initial install.
 
 # sync50
 
-# check
+### check
 Checks the exit status of the most recently called function, and if it is non-zero,
 stops sync50 and exits.
 
-# deleteExcludes
+### deleteExcludes
 Locally deletes files that have been unintentionally downloaded from the cloud; ie
 new excludes. Because copy.com does not have the ability to whitelist certain files,
 this is our best option to prevent the IDE from being bricked if the copy.com user
 adds extraneous files or new workspaces.
 
-# exclude
+### exclude
 Adds extraneous files to the exclude list. It uses a regex to strip the output of
 CopyCmd Cloud ls (listing the files on the cloud) to a usable form. Ex:
     In the directory workspaces
@@ -77,10 +77,10 @@ in the copy root directory, exclude everything but "workspaces"
 in workspaces, exclude everything but "$USER"
 in "<$USER>", exclude everything but "<$PROJECT>"
 
-# help
+### help
 Display usage information
 
-# install
+### install
 If not installed, download the copy.com binaries. For some reason, when downloading
 the binaries, copy.com does not consistently provide the .copy metadata folder. 
 For this reason, if it has not been provided, this program creates it and populates
@@ -94,13 +94,13 @@ called "workspaces", then a folder called "<USER>", then a folder called "<PROJE
 "<PROJECT>" is actually a symlink to "workspace". Thus, we are able to preserve 
 an extensive file hierarchy on the cloud without changin user workflow.
 
-# login
+### login
 Prompts user for login information. If they do not have an account, directs them
 to copy.com, else prompts for email and password. Checks for edge case where password
 is empty, then attempts to log in the user to the copy.com daemon service and
 calling "process init"
 
-# process [start|stop|init]
+### process [start|stop|init]
 Handles the copy.com daemon. It takes a little fime for the CopyConsole daemon to
 get it's feet on the ground, so in the first part of this function, we wait for
 a state change by polling the current process list for "CopyConsole". Once it appears
@@ -116,10 +116,10 @@ The following behavior depends on what the input argument was.
     stop:
         If there is not a process id, alert success, else failure
 
-# status
+### status
 Cat the contents of the status file and store them in $STATUS.
 
-# start
+### start
 Starts sync50. If the copy.com binaries have not been downloaded, start will begin
 the install process. If the status file contains the missing login or invalid login
 message, start runs login.
@@ -127,12 +127,12 @@ Otherwise, start starts the CopyConsole daemon and the sync50daemon. The CopyCon
 daemon interfaces with copy.com. The sync50daemon prevents new unwanted files from
 being downloaded.
 
-# stop
+### stop
 Stops sync50. If there is a CopyConsole process running, kill it. Then, check if
 the copy daemon is running and kill it as well. Run "process stop" to verify we 
 stopped successfully. Update the status file.
 
-# uninstall
+### uninstall
 Removes the copy.com binaries (but not sync50). Prompts the user for consent to 
 uninstall. Stops the sync50 processes. Unlinks workspace and the copy folders.
 Removes the copy and .copy folders and alerts the user copy has been uninstalled.
