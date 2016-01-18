@@ -11,9 +11,9 @@ set -uo pipefail
 IFS=$'\n\t'
 
 # check environment variables
-[ -z "${HOME}" ] && echo "Environment variable HOME not set." && exit 1;
-[ -z "${C9_USER}" ] && echo "Environment variable C9_USER not set." && exit 1;
-[ -z "${C9_PROJECT}" ] && echo "Environment variable C9_PROJECT not set." && exit 1;
+[ -z "${HOME}" ] && echo "Environment variable HOME not set." && exit 2;
+[ -z "${C9_USER}" ] && echo "Environment variable C9_USER not set." && exit 2;
+[ -z "${C9_PROJECT}" ] && echo "Environment variable C9_PROJECT not set." && exit 2;
 
 # important cloud paths
 readonly CLDWKSPCS="workspaces"
@@ -67,7 +67,7 @@ check(){
     if [ "$?" != 0 ]; then 
         echo "$CLDFAILURE" 
         stop
-        exit
+        exit 1
     fi
 }
 
@@ -77,7 +77,7 @@ deleteExcludes(){
         for file in $(ls "$1"); do
             if [ "$file" != "$2" ]; then
                 rm -rf "$1/$file"
-                echo "remove local exlcudes ret: $?"
+                check
             fi
         done
     }
@@ -190,27 +190,25 @@ process(){
     currentPID=$PID
     counter=0
     # until there's a process id state change or we run out of time, search for process
-    set +e
     until [ "$currentPID" != "$PID" ] || [ $counter = $TIMEOUT ]; do
         echo -n "... "
         sleep 1
         currentPID=$(ps -ef | grep "$PROCESSNAME" | grep -v grep | awk '{print $2}')
         let counter+=1
     done; echo
-    set -e
     PID="$currentPID" # update PID
     
     case "$1" in
         "start")
             # if there's a process, echo succcess, else failure
-            [[ -n "$currentPID" ]] && echo "$STARTSUCCESS" || echo "$STARTFAILURE"
+            [[ -n "$PID" ]] && echo "$STARTSUCCESS" || echo "$STARTFAILURE"
             ;;
         "stop")
             # if there's not a process, echo succcess, else failure
-            [[ -z "$currentPID" ]] && echo "$STOPSUCCESS" || echo "$STOPFAILURE"
+            [[ -z "$PID" ]] && echo "$STOPSUCCESS" || echo "$STOPFAILURE"
             ;;
         "init")
-            if [ -z "$currentPID" ]; then
+            if [ -z "$PID" ]; then
                 # if there's not a process running, there was an error
                 status
                 echo "$STATUS. Exiting..." 
