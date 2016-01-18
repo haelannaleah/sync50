@@ -28,3 +28,6 @@ TODO: update paths for sync50 and sync50 daemon to reflect their location in bin
 **Note: sync50 will only backup files in the workspace part of your cloud9 file
     tree. If you have added files or folders above it in the file hierarchy, they
     will not be saved.**
+
+
+

@@ -10,6 +10,11 @@
 set -uo pipefail
 IFS=$'\n\t'
 
+# check environment variables
+[ -z "${HOME}" ] && echo "Environment variable HOME not set." && exit 1;
+[ -z "${C9_USER}" ] && echo "Environment variable C9_USER not set." && exit 1;
+[ -z "${C9_PROJECT}" ] && echo "Environment variable C9_PROJECT not set." && exit 1;
+
 # important cloud paths
 readonly CLDWKSPCS="workspaces"
 readonly CLDUSERS="$CLDWKSPCS/${C9_USER}"
