@@ -11,25 +11,35 @@ set -uo pipefail
 IFS=$'\n\t'
 
 # check environment variables
-[ -z "${HOME}" ] && echo "Environment variable HOME not set." && exit 2;
-[ -z "${C9_USER}" ] && echo "Environment variable C9_USER not set." && exit 2;
-[ -z "${C9_PROJECT}" ] && echo "Environment variable C9_PROJECT not set." && exit 2;
+[ -z "$HOME" ] && echo "Environment variable HOME not set." && exit 1;
+[ -z "$C9_USER" ] && echo "Environment variable C9_USER not set." && exit 1;
+[ -z "$C9_PROJECT" ] && echo "Environment variable C9_PROJECT not set." && exit 1;
+
+# only run as ubuntu
+if [ "$(whoami)" != "ubuntu" ]; then
+    echo "This script must only be run by the ubuntu user (don't use sudo)!"
+    exit 2
+fi
+
+# name of script
+readonly SCRIPTNAME="sync50"
+readonly DAEMONNAME="sync50daemon"
 
 # important cloud paths
 readonly CLDWKSPCS="workspaces"
-readonly CLDUSERS="$CLDWKSPCS/${C9_USER}"
-readonly CLDPRJCT="$CLDUSERS/${C9_PROJECT}"
+readonly CLDUSERS="$CLDWKSPCS/$C9_USER"
+readonly CLDPRJCT="$CLDUSERS/$C9_PROJECT"
 
 # important local paths
-readonly WORKDIR="${HOME}/workspace"             # path to workspace
-readonly COPYLOC="${HOME}/copy"                  # location of the copy folder
-readonly DOTCOPY="${HOME}/.copy"                 # location of the metadata
-readonly STATUSFILE="$DOTCOPY/status.txt"        # location of status data
-readonly WATCHPID="$DOTCOPY/watchPID.txt"        # location of process id for running watch daemon
-readonly SYNCDIR="$DOTCOPY/userdata"             # root directory of copy.com data
-readonly SYMLINKDIR="$SYNCDIR/$CLDUSERS"         # directory containing symlink
-readonly SYMLINK="$SYMLINKDIR/${C9_PROJECT}"     # symlink to workspace
-readonly SYNC50PATH="${HOME}/workspace/sync50"   # TODO: install in bin and remove this
+readonly WORKDIR="$HOME/workspace"             # path to workspace
+readonly COPYLOC="$HOME/copy"                  # location of the copy folder
+readonly DOTCOPY="$HOME/.copy"                 # location of the metadata
+readonly STATUSFILE="$DOTCOPY/status.txt"      # location of status data
+readonly WATCHPID="$DOTCOPY/watch.pid"         # location of process id for running watch daemon
+readonly SYNCDIR="$DOTCOPY/userdata"           # root directory of copy.com data
+readonly SYMLINKDIR="$SYNCDIR/$CLDUSERS"       # directory containing symlink
+readonly SYMLINK="$SYMLINKDIR/$C9_PROJECT"     # symlink to workspace
+readonly SYNC50PATH="$HOME/workspace/$SCRIPTNAME"   # TODO: install in bin and remove this
 
 # the copy.com "cli" that we're wrapping
 readonly COPYCMD="$COPYLOC/x86_64/CopyCmd"           
@@ -39,21 +49,23 @@ readonly COPYCONSOLE="$COPYLOC/x86_64/CopyConsole"
 STATUS=""
 readonly INVALIDLOGN="Incorrect username or password"
 readonly MISSLOGIN="Missing Login Information"
-readonly NOTINSTALLED="Sync50 has not been installed. Type 'sync50 start' to begin setup."
+readonly NOTINSTALLED="$SCRIPTNAME has not been installed. Type '$SCRIPTNAME start' to begin setup."
 readonly NOWATCH="No watch running"
-readonly NOTRUN="Sync50 is not running!"
+readonly NOTRUN="$SCRIPTNAME is not running!"
 
 # process variables; name, ID
 readonly PROCESSNAME="CopyConsole"
-PID=$(ps -ef | grep "$PROCESSNAME" | grep -v grep | awk '{print $2}')
+PID=$(pidof "$PROCESSNAME")
 readonly TIMEOUT=5       # process times out after this many seconds
 
 # messages
 readonly STARTSUCCESS="Syncing started successfully!"
-readonly STARTFAILURE="Unable to start sync50 at this time."
+readonly STARTFAILURE="Unable to start $SCRIPTNAME at this time."
 readonly STOPSUCCESS="Syncing stopped."
-readonly STOPFAILURE="Unable to stop sync50 at this time."
-readonly CLDFAILURE="ERROR: Failure to connect with cloud. Try again later. Exitting..."
+readonly STOPFAILURE="Unable to stop $SCRIPTNAME at this time."
+readonly CLDFAILURE="ERROR: Failure to connect with cloud. Try again later. Exiting..."
+readonly DNLDFAILURE="ERROR: Unable to to download binaries. Exiting..."
+readonly FILEFAILURE="ERROR: Unable to remove local file. Exiting..."
 
 # misc regexs (don't panic)
 readonly EXREGEX='s/^\///gm'                                # for listing excludes
@@ -61,13 +73,14 @@ readonly LSREGEX='s/^d.[ \t\f\v]*|^-.[ \t\f\v]*(\S* )//gm'  # for listing files
 
 ################## BEGIN FUNCTION DEFINITIONS ##################################
 
+# usage: check "error message"
 # used to standardize error detection
 check(){
     # error check cloud cli
-    if [ "$?" != 0 ]; then 
-        echo "$CLDFAILURE" 
+    if [ $? -ne  0 ]; then 
         stop
-        exit 1
+        error_msg "$1"
+        exit 3
     fi
 }
 
@@ -77,14 +90,18 @@ deleteExcludes(){
         for file in $(ls "$1"); do
             if [ "$file" != "$2" ]; then
                 rm -rf "$1/$file"
-                check
+                check "$FILEFAILURE"
             fi
         done
     }
     # delete files in any of three sub dirs
     delete_helper "$SYNCDIR" "$CLDWKSPCS"
-    delete_helper "$SYNCDIR/$CLDWKSPCS" "${C9_USER}"
-    delete_helper "$SYNCDIR/$CLDUSERS" "${C9_PROJECT}"
+    delete_helper "$SYNCDIR/$CLDWKSPCS" "$C9_USER"
+    delete_helper "$SYNCDIR/$CLDUSERS" "$C9_PROJECT"
+}
+
+error_msg(){
+    echo "$1" >&2
 }
 
 # climb through file tree and exlude all files not in project to prevent bricking IDE
@@ -94,7 +111,7 @@ exclude(){
         dir=""
         path=""
         # get stripped down file/directory names
-        if [ $# = 2 ]; then
+        if [ $# -eq 2 ]; then
             # set path, start at 3rd line of search results; first line is metadata, 2nd is pwd
             path="$2/"
             dir=$($COPYCMD Cloud ls "$2" | sed -r "$LSREGEX" | tail -n +3)
@@ -102,31 +119,31 @@ exclude(){
             # starting at 2nd line of search results; first is metadata
             dir=$($COPYCMD Cloud ls | sed -r "$LSREGEX" | tail -n +2)
         fi
-        check # error check cloud cli
+        check "$CLDFAILURE" # error check cloud cli
         
         for file in $dir; do
             if [ "$file" != "$1" ]; then
                 echo -n "... "
                 $COPYCMD Cloud exclude -exclude "$path$file" > /dev/null
-                check # error check cloud cli
+                check "$CLDFAILURE" # error check cloud cli
             fi
         done
     }
     # exclude files in each sub directory of our workspaces tree
     exclude_helper "$CLDWKSPCS"
-    exclude_helper "${C9_USER}" "$CLDWKSPCS"
-    exclude_helper "${C9_PROJECT}" "$CLDUSERS"
+    exclude_helper "$C9_USER" "$CLDWKSPCS"
+    exclude_helper "$C9_PROJECT" "$CLDUSERS"
     echo
 }
 
 # displays information on the usage of this wrapper
 help(){
-    echo "Usage: sync50 [FUNCTION]"
+    echo "Usage: $SCRIPTNAME [start|stop|status|uninstall]"
     echo "Functions:"
     echo -e "\tstart\t\tstart copy.com syncing, or install if first run"
     echo -e "\tstop\t\tstop Copy.com syncing"
     echo -e "\tstatus\t\tget info about current Copy.com processes"
-    echo -e "\tuninstall\t\tremove Copy.com program files"
+    echo -e "\tuninstall\t\tuninstall Copy.com program files"
 }
 
 # installs the copy.com binaries for the first time
@@ -134,7 +151,7 @@ install(){
     if [ ! -e "$COPYCMD" ]; then
         echo "Downloading Copy...."; echo -n "... "
         wget -q -O - "https://copy.com/install/linux/Copy.tgz" |  tar xzf - > /dev/null; echo -n "... "
-        check # error check download
+        check "$DNLDFAILURE" # error check download
         
         # TODO: assume this is installed already 
         # sudo apt-get install -y inotify-tools > /dev/null
@@ -167,11 +184,11 @@ login(){
         echo -n "email address: "; read email
         echo -n "password: "; read -s pswrd; echo
         echo "Checking..."
-        [ -z $pswrd ] && echo "$INVALIDLOGN" && exit    # check for null password
+        test -z $pswrd && error_msg "$INVALIDLOGN" && exit 4   # check for null password
         
         # attempt to login user
         $COPYCONSOLE -daemon -u="$email" -p="$pswrd" -r="$SYNCDIR" > /dev/null
-        check # error check cloud cli
+        check "$CLDFAILURE" # error check cloud cli
         process "init"
     else
         echo "Before completing setup, you need a copy.com account."
@@ -184,35 +201,27 @@ login(){
 # start: PID starts as "". Run until PID changes to a value or timeout, report success or failure
 # stop: PID starts as a value. Run until PID changes to "" or timeout, report success or failure
 # init: PID starts as "". Run until PID changes to a value, report failure or if successful...
-#       immediately run stop to prevent syncing. Run exlcude on the cloud file tree. Finally,
+#       immediately run stop to prevent syncing. Run exclude on the cloud file tree. Finally,
 #       run start to begin syncing.
 process(){
     currentPID=$PID
     counter=0
     # until there's a process id state change or we run out of time, search for process
-    until [ "$currentPID" != "$PID" ] || [ $counter = $TIMEOUT ]; do
+    until [ "$currentPID" != "$PID" ] || [ $counter -eq $TIMEOUT ]; do
         echo -n "... "
         sleep 1
-        currentPID=$(ps -ef | grep "$PROCESSNAME" | grep -v grep | awk '{print $2}')
+        currentPID=$(pidof "$PROCESSNAME")
         let counter+=1
     done; echo
     PID="$currentPID" # update PID
     
     case "$1" in
-        "start")
-            # if there's a process, echo succcess, else failure
-            [[ -n "$PID" ]] && echo "$STARTSUCCESS" || echo "$STARTFAILURE"
-            ;;
-        "stop")
-            # if there's not a process, echo succcess, else failure
-            [[ -z "$PID" ]] && echo "$STOPSUCCESS" || echo "$STOPFAILURE"
-            ;;
         "init")
             if [ -z "$PID" ]; then
                 # if there's not a process running, there was an error
                 status
-                echo "$STATUS. Exiting..." 
-                exit 
+                error_msg "$STATUS. Exiting..." 
+                exit 7
             else
                 # stop syncing and handle excludes
                 stop > /dev/null
@@ -220,6 +229,26 @@ process(){
                 exclude
                 echo "Exclusions complete."
                 start
+            fi
+            ;;
+        "start")
+            # if there's a process, echo succcess, else failure
+            if [ -n "$PID" ]; then
+                # add the most recent inotify process to watch list
+                pgrep -n "inotifywait" >> "$WATCHPID" 
+                echo "$STARTSUCCESS" 
+            else
+                echo "$STARTFAILURE" 
+                exit 5
+            fi
+            ;;
+        "stop")
+            # if there's not a process, echo succcess, else failure
+            if [ -z "$PID"]; then
+                echo "$STOPSUCCESS" 
+            else
+                error_msg "$STOPFAILURE"
+                exit 6
             fi
             ;;
         *)
@@ -248,15 +277,16 @@ start(){
         echo "Starting..."
         
         # begin the daemon running in the background to deal with new files
-        "$SYNC50PATH/sync50daemon" "@$SYNCDIR/$CLDPRJCT" "$SYNCDIR" "$SYNCDIR/$CLDWKSPCS" "$SYNCDIR/$CLDUSERS" \
-            "$SYNC50PATH" &> /dev/null & echo $! > "$WATCHPID"
+        "$SYNC50PATH/$DAEMONNAME" "@$SYNCDIR/$CLDPRJCT" "$SYNCDIR" "$SYNCDIR/$CLDWKSPCS" "$SYNCDIR/$CLDUSERS" \
+            "$SYNC50PATH" &> /dev/null & 
+        echo $! > "$WATCHPID"
 
         # start copy daemon
         $COPYCONSOLE -daemon > /dev/null  
-        check # error check cloud cli
+        check "$CLDFAILURE" # error check cloud cli
         process "start"
     else
-        echo "Sync50 is already running!"
+        echo "$SCRIPTNAME is already running!"
     fi
 }
 
@@ -265,8 +295,9 @@ stop(){
     if [ -n "$PID" ]; then
         echo "Stopping..."
         kill $PID
-        watchPID=$(head -n 1 $WATCHPID) # get the process id of the watcher daemon
-        [[ "$watchPID" != "$NOWATCH" ]] && kill $watchPID; echo "$NOWATCH" > "$WATCHPID"
+        watchPID=$(head -n 2 $WATCHPID) # get the process id of the watcher daemon
+        test "$watchPID" != "$NOWATCH" && kill $watchPID; 
+        echo "$NOWATCH" > "$WATCHPID"
         process "stop"
         echo "$NOTRUN" > "$STATUSFILE"
     else
@@ -291,13 +322,19 @@ uninstall(){
     fi
 }
 
+# a bit of cleanup on exit
+exit_trap(){
+    popd > /dev/null
+}
+trap exit_trap EXIT
+
 ######################### BEGIN BODY OF PROGRAM ##############################
 
-pushd ${HOME} >/dev/null
+pushd "$HOME" > /dev/null
 
-if [ $# != 1 ]; then
+if [ $# -ne 1 ]; then
     help
-    exit
+    exit 6
 fi
 
 case "$1" in
@@ -323,9 +360,8 @@ case "$1" in
         start
         ;;
     *)
-        echo "sync50: unrecognized option '$1'"
-        echo "Usage: sync50 [start|stop|status|uninstall]"
-        echo "Try 'sync50 help' for more information."
+        echo "$SCRIPTNAME: unrecognized option '$1'"
+        echo "Usage: $SCRIPTNAME [help|start|stop|status|uninstall]"
+        echo "Try '$SCRIPTNAME help' for more information."
         ;;
 esac
-exit
