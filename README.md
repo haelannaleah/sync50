@@ -58,7 +58,7 @@ adds extraneous files or new workspaces.
 #### exclude
 Adds extraneous files to the exclude list. It uses a regex to strip the output of
 `CopyCmd Cloud ls` (listing the files on the cloud) to a usable form. Ex:
-  * In the directory workspaces
+* In the directory workspaces
     ```
         Logged in as annaleahernst@college.harvard.edu
         dX          workspaces
@@ -66,13 +66,13 @@ Adds extraneous files to the exclude list. It uses a regex to strip the output o
         -X          test_file.c
         -X          more tests.txt
     ```
-  * is stripped to
+* is stripped to
     ```
         users
         test_file.c
         more tests.txt
     ```
-Each file or folder that is not supposed to be synced is ignored. The file
+* Each file or folder that is not supposed to be synced is ignored. The file
 hierarchy of the copy.com/cloud9 workspaces should be invariant;
   * in the copy root directory, exclude everything but `workspaces`
   * in workspaces, exclude everything but `<USER>`
