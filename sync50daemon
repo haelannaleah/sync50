@@ -1,11 +1,10 @@
 #!/bin/bash
 
-# TODO: pair down last argument
-# five arguments as a temporary measure; will be pair down to 4 when path esablished
-# fifth argument is path to sync50 and sync50daemon
+# accepts five arguments
 # first argument is a file we don't want to watch
 # middle 3 are the directories we want to watch for changes
-# designed this way to force correct path names to happen if sync50's constants are changed
+# fifth argument is path to sync50daemon
+# designed this way to force correct path names to happen if $5's constants are changed
 # since this program (by necessity) ultimately calls start and stop, no need to have a forever loop
 if [ $# -ne 5 ]; then
     echo "This script is not intended to be run directly but only by backup50" 
@@ -13,4 +12,4 @@ if [ $# -ne 5 ]; then
 fi
 
 # begin watching directories of interest for unwanted changes
-inotifywait "$1" "$2" "$3" "$4" -e move,create && "$5/sync50" "--delete_local_excludes"
+inotifywait "$1" "$2" "$3" "$4" -e move,create && "$5" "--delete_local_excludes"

@@ -113,17 +113,17 @@ exclude(){
         if [ $# -eq 2 ]; then
             # set path, start at 3rd line of search results; first line is metadata, 2nd is pwd
             path="$2/"
-            dir=$($COPYCMD Cloud ls "$2" | sed -r "$LSREGEX" | tail -n +3)
+            dir=$("$COPYCMD" Cloud ls "$2" | sed -r "$LSREGEX" | tail -n +3)
         else
             # starting at 2nd line of search results; first is metadata
-            dir=$($COPYCMD Cloud ls | sed -r "$LSREGEX" | tail -n +2)
+            dir=$("$COPYCMD" Cloud ls | sed -r "$LSREGEX" | tail -n +2)
         fi
         check "$CLDFAILURE" # error check cloud cli
         
         for file in $dir; do
             if [ "$file" != "$1" ]; then
                 echo -n "... "
-                $COPYCMD Cloud exclude -exclude "$path$file" > /dev/null
+                "$COPYCMD" Cloud exclude -exclude "$path$file" > /dev/null
                 check "$CLDFAILURE" # error check cloud cli
             fi
         done
@@ -274,7 +274,7 @@ start(){
         
         # begin the daemon running in the background to deal with new files
         "$SYNC50PATH/$DAEMONNAME" "@$SYNCDIR/$CLDPRJCT" "$SYNCDIR" "$SYNCDIR/$CLDWKSPCS" "$SYNCDIR/$CLDUSERS" \
-            "$SYNC50PATH" &> /dev/null & 
+            "$SYNC50PATH/$SCRIPTNAME" &> /dev/null & 
 
         # start copy daemon
         $COPYCONSOLE -daemon > /dev/null  
