@@ -23,7 +23,6 @@ fi
 
 # name of script
 readonly SCRIPTNAME="sync50"
-readonly DAEMONNAME="sync50daemon"
 
 # important cloud paths
 readonly CLDWKSPCS="workspaces"
@@ -274,7 +273,8 @@ start(){
         # start subshell & begin watching sync directories to deal with new files
         (   inotifywait "@$SYNCDIR/$CLDPRJCT" "$SYNCDIR" "$SYNCDIR/$CLDWKSPCS" "$SYNCDIR/$CLDUSERS" -e move,create \
                 && echo "$NOWATCH" > "$WATCHPID" \
-                && "$SYNC50PATH/$SCRIPTNAME" "--delete_local_excludes" ) &>/dev/null &
+                && "$SYNC50PATH/$SCRIPTNAME" "--delete_local_excludes" 
+        ) &> /dev/null &
 
         # start copy daemon
         $COPYCONSOLE -daemon > /dev/null  
@@ -291,7 +291,7 @@ stop(){
         echo "Stopping..."
         kill $PID
         watchPID=$(head -n 2 "$WATCHPID") # get the process id of the watcher daemon
-        test "$watchPID" != "$NOWATCH" && kill "$watchPID" &>/dev/null 
+        test "$watchPID" != "$NOWATCH" && kill "$watchPID"
         echo "$NOWATCH" > "$WATCHPID"
         process "stop"
         echo "$NOTRUN" > "$STATUSFILE"
