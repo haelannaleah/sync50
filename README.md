@@ -34,17 +34,6 @@ TODO: update paths for sync50 and sync50 daemon to reflect their location in bin
 
 ## Design
 
-### sync50daemon
-Accepts 4 input arguments (currently accepts 5, but should be paired down to 4 when
-sync50 is installed in bin). These arguments are: the directory to ignore, and three
-directories to watch for changes. This daemon runs in the background until killed,
-and triggers when files are created in the parent directories of `<USER>`. On trigger,
-it calls `sync50 --delete_local_excludes`, which calls `stop`, `deleteExcludes`, `excludes`,
-and start. This is how sync50 is able to dynamically avoid downloading extraneous 
-files even after initial install.
-
-### sync50
-
 #### check
 Checks the exit status of the most recently called function, and if it is non-zero,
 stops sync50 and exits.
@@ -124,9 +113,12 @@ Cat the contents of the status file and store them in `$STATUS`.
 Starts sync50. If the copy.com binaries have not been downloaded, start will begin
 the install process. If the status file contains the missing login or invalid login
 message, start runs login.
-Otherwise, start starts the CopyConsole daemon and the sync50 daemon. The CopyConsole
-daemon interfaces with copy.com. The `sync50daemon` prevents new unwanted files from
-being downloaded.
+Otherwise, start starts the CopyConsole daemon starts an inotifywait. The CopyConsole
+daemon interfaces with copy.com. Inotifywait runs in the background until killed or
+triggered triggers when files are created in the parent directories of `<USER>`. 
+On trigger, it calls `sync50 --delete_local_excludes`, which calls `stop`, 
+`deleteExcludes`, `excludes`, and start. This is how sync50 is able to dynamically 
+avoid downloading extraneous files even after initial install.
 
 #### stop
 Stops sync50. If there is a CopyConsole process running, kill it. Then, check if

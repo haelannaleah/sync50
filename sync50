@@ -270,7 +270,7 @@ start(){
     elif [ -z "$PID" ]; then
         echo "Starting..."
         
-        # start subshell & begin watching sync directories to deal with new files
+        # start subshell & begin watching synced directories to deal with new files
         (   inotifywait "@$SYNCDIR/$CLDPRJCT" "$SYNCDIR" "$SYNCDIR/$CLDWKSPCS" "$SYNCDIR/$CLDUSERS" -e move,create \
                 && echo "$NOWATCH" > "$WATCHPID" \
                 && "$SYNC50PATH/$SCRIPTNAME" "--delete_local_excludes" 
@@ -350,6 +350,7 @@ case "$1" in
         uninstall
         ;;
     "--delete_local_excludes")
+        # the secret option for inotify to call...
         stop
         exclude && deleteExcludes
         start
