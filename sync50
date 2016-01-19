@@ -78,7 +78,7 @@ readonly LSREGEX='s/^d.[ \t\f\v]*|^-.[ \t\f\v]*(\S* )//gm'  # for listing files
 check(){
     # error check cloud cli
     if [ $? -ne  0 ]; then 
-        stop
+        stop > /dev/null
         error_msg "$1"
         exit 3
     fi
@@ -90,7 +90,6 @@ deleteExcludes(){
         for file in $(ls "$1"); do
             if [ "$file" != "$2" ]; then
                 rm -rf "$1/$file"
-                check "$FILEFAILURE"
             fi
         done
     }
@@ -152,10 +151,6 @@ install(){
         echo "Downloading Copy...."; echo -n "... "
         wget -q -O - "https://copy.com/install/linux/Copy.tgz" |  tar xzf - > /dev/null; echo -n "... "
         check "$DNLDFAILURE" # error check download
-        
-        # TODO: assume this is installed already 
-        # sudo apt-get install -y inotify-tools > /dev/null
-        # check
         echo -n "..."; echo
         
         # make the metadata folder if copy.com was lazy
@@ -234,11 +229,12 @@ process(){
         "start")
             # if there's a process, echo succcess, else failure
             if [ -n "$PID" ]; then
-                # add the most recent inotify process to watch list
-                pgrep -n "inotifywait" >> "$WATCHPID" 
+                # add the most recent inotify and daemon process to watch list
+                pgrep -n "inotifywait" > "$WATCHPID"
+                pgrep "$DAEMONNAME" >> "$WATCHPID"
                 echo "$STARTSUCCESS" 
             else
-                echo "$STARTFAILURE" 
+                error_msg "$STARTFAILURE" 
                 exit 5
             fi
             ;;
@@ -279,7 +275,6 @@ start(){
         # begin the daemon running in the background to deal with new files
         "$SYNC50PATH/$DAEMONNAME" "@$SYNCDIR/$CLDPRJCT" "$SYNCDIR" "$SYNCDIR/$CLDWKSPCS" "$SYNCDIR/$CLDUSERS" \
             "$SYNC50PATH" &> /dev/null & 
-        echo $! > "$WATCHPID"
 
         # start copy daemon
         $COPYCONSOLE -daemon > /dev/null  
