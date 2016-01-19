@@ -55,7 +55,7 @@ readonly NOTRUN="$SCRIPTNAME is not running!"
 
 # process variables; name, ID
 readonly PROCESSNAME="CopyConsole"
-PID=$(pidof "$PROCESSNAME")
+PID=$(pgrep "$PROCESSNAME")
 readonly TIMEOUT=5       # process times out after this many seconds
 
 # messages
@@ -205,7 +205,7 @@ process(){
     until [ "$currentPID" != "$PID" ] || [ $counter -eq $TIMEOUT ]; do
         echo -n "... "
         sleep 1
-        currentPID=$(pidof "$PROCESSNAME")
+        currentPID=$(pgrep "$PROCESSNAME")
         let counter+=1
     done; echo
     PID="$currentPID" # update PID
@@ -231,7 +231,6 @@ process(){
             if [ -n "$PID" ]; then
                 # add the most recent inotify and daemon process to watch list
                 pgrep -n "inotifywait" > "$WATCHPID"
-                pgrep "$DAEMONNAME" >> "$WATCHPID"
                 echo "$STARTSUCCESS" 
             else
                 error_msg "$STARTFAILURE" 
@@ -272,9 +271,10 @@ start(){
     elif [ -z "$PID" ]; then
         echo "Starting..."
         
-        # begin the daemon running in the background to deal with new files
-        "$SYNC50PATH/$DAEMONNAME" "@$SYNCDIR/$CLDPRJCT" "$SYNCDIR" "$SYNCDIR/$CLDWKSPCS" "$SYNCDIR/$CLDUSERS" \
-            "$SYNC50PATH/$SCRIPTNAME" &> /dev/null & 
+        # begin watching sync directories to deal with new files
+        inotifywait "@$SYNCDIR/$CLDPRJCT" "$SYNCDIR" "$SYNCDIR/$CLDWKSPCS" "$SYNCDIR/$CLDUSERS" -e move,create \
+            &> /dev/null && echo "$NOWATCH" > "$WATCHPID" \
+            && "$SYNC50PATH/$SCRIPTNAME" "--delete_local_excludes" &> /dev/null &
 
         # start copy daemon
         $COPYCONSOLE -daemon > /dev/null  
@@ -290,8 +290,8 @@ stop(){
     if [ -n "$PID" ]; then
         echo "Stopping..."
         kill $PID
-        watchPID=$(head -n 2 $WATCHPID) # get the process id of the watcher daemon
-        test "$watchPID" != "$NOWATCH" && kill $watchPID; 
+        watchPID=$(head -n 2 "$WATCHPID") # get the process id of the watcher daemon
+        test "$watchPID" != "$NOWATCH" && kill -KILL "$watchPID"
         echo "$NOWATCH" > "$WATCHPID"
         process "stop"
         echo "$NOTRUN" > "$STATUSFILE"
