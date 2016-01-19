@@ -139,10 +139,10 @@ exclude(){
 help(){
     echo "Usage: $SCRIPTNAME [start|stop|status|uninstall]"
     echo "Functions:"
-    echo -e "\tstart\t\tstart copy.com syncing, or install if first run"
-    echo -e "\tstop\t\tstop Copy.com syncing"
-    echo -e "\tstatus\t\tget info about current Copy.com processes"
-    echo -e "\tuninstall\t\tuninstall Copy.com program files"
+    echo -e "\t start \t\t start Copy.com syncing, or install if first run"
+    echo -e "\t stop \t\t stop Copy.com syncing"
+    echo -e "\t status \t get info about current Copy.com processes"
+    echo -e "\t uninstall \t uninstall Copy.com program files"
 }
 
 # installs the copy.com binaries for the first time

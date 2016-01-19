@@ -66,7 +66,7 @@ Adds extraneous files to the exclude list. It uses a regex to strip the output o
         -X          test_file.c
         -X          more tests.txt
     ```
-* is stripped to
+is stripped to
     ```
         users
         test_file.c
@@ -102,9 +102,9 @@ is empty, then attempts to log in the user to the copy.com daemon service and
 calling `process init`
 
 #### process [start|stop|init]
-Handles the copy.com daemon. It takes a little fime for the CopyConsole daemon to
+Handles the copy.com daemon. It takes a little fime for the `CopyConsole` daemon to
 get it's feet on the ground, so in the first part of this function, we wait for
-a state change by polling the current process list for "CopyConsole". Once it appears
+a state change by polling the current process list for `CopyConsole`. Once it appears
 (or disappears), or times out, we exit the initial polling loop and update $PID.
 The following behavior depends on what the input argument was.
     * `init`:
@@ -118,7 +118,7 @@ The following behavior depends on what the input argument was.
       * If there is not a process id, alert success, else failure
 
 #### status
-Cat the contents of the status file and store them in $STATUS.
+Cat the contents of the status file and store them in `$STATUS`.
 
 #### start
 Starts sync50. If the copy.com binaries have not been downloaded, start will begin
