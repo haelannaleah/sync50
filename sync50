@@ -85,6 +85,7 @@ check(){
 
 # deletes files that are excluded on the cloud and have been (sneakily) downloaded locally 
 deleteExcludes(){
+    # usage: delete_helper [DIR TO CRAWL THROUGH] [DIR TO PROTECT]
     delete_helper(){
         for file in $(ls "$1"); do
             if [ "$file" != "$2" ]; then
@@ -98,13 +99,14 @@ deleteExcludes(){
     delete_helper "$SYNCDIR/$CLDUSERS" "$C9_PROJECT"
 }
 
+# print message to stderr
 error_msg(){
     echo "$1" >&2
 }
 
 # climb through file tree and exlude all files not in project to prevent bricking IDE
 exclude(){
-    # usage: exclude_helper [FILE/FOLDER TO KEEP] ([PATH TO CURRENT DIR])
+    # usage: exclude_helper [FILE/FOLDER TO KEEP] ([CLD PATH TO CURRENT DIR])
     exclude_helper(){
         dir=""
         path=""
@@ -119,6 +121,7 @@ exclude(){
         fi
         check "$CLDFAILURE" # error check cloud cli
         
+        # run the exclusions on each file
         for file in $dir; do
             if [ "$file" != "$1" ]; then
                 echo -n "... "

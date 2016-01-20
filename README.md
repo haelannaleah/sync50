@@ -102,7 +102,8 @@ The following behavior depends on what the input argument was.
       * Immediately stop syncing. Call exclude to prevent syncing unwanted files.
         After exclusions are complete, start syncing.
     * `start`:
-      * If there is a process id, alert success, else failure
+      * If there is a process id, find the inotify process and alert success, 
+      else failure
     * `stop`:
       * If there is not a process id, alert success, else failure
 
@@ -113,11 +114,11 @@ Cat the contents of the status file and store them in `$STATUS`.
 Starts sync50. If the copy.com binaries have not been downloaded, start will begin
 the install process. If the status file contains the missing login or invalid login
 message, start runs login.
-Otherwise, start starts the CopyConsole daemon starts an inotifywait. The CopyConsole
+Otherwise, start starts the CopyConsole daemon starts inotifywait. The CopyConsole
 daemon interfaces with copy.com. Inotifywait runs in the background until killed or
 triggered triggers when files are created in the parent directories of `<USER>`. 
 On trigger, it calls `sync50 --delete_local_excludes`, which calls `stop`, 
-`deleteExcludes`, `excludes`, and start. This is how sync50 is able to dynamically 
+`deleteExcludes`, `excludes`, and `start`. This is how sync50 is able to dynamically 
 avoid downloading extraneous files even after initial install.
 
 #### stop
